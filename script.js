@@ -1,52 +1,69 @@
 const apiKey = 'c73b144e99304852a03144128240608';
+const locationInput = document.getElementById('locationInput');
+const locationDisplay = document.getElementById('location');
+const todayWeatherDisplay = document.getElementById('todayWeather');
+const forecastDisplay = document.getElementById('forecast');
 
-async function fetchWeather(location = 'auto:ip') {
-    const weatherInfo = document.getElementById('weather-info');
-    const loadingIndicator = document.getElementById('loading');
-
+// Fetch weather data based on the provided location
+async function fetchWeather(location) {
     try {
-        loadingIndicator.classList.remove('hidden');
         const response = await fetch(`https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${location}&days=4`);
+        if (!response.ok) throw new Error('Failed to fetch weather data');
         const data = await response.json();
-        displayWeather(data);
+        displayWeatherData(data);
     } catch (error) {
-        console.error('Error fetching weather data:', error);
-    } finally {
-        loadingIndicator.classList.add('hidden');
+        console.error(error);
+        // alert('Could not retrieve weather data. Please try again.');
     }
 }
 
-function displayWeather(data) {
-    const weatherInfo = document.getElementById('weather-info');
+// Display the fetched weather data in the UI
+function displayWeatherData(data) {
     const { location, current, forecast } = data;
-
-    const currentWeather = `
-        <div class="text-center mb-4">
-            <h2 class="text-2xl font-bold">${location.name}, ${location.country}</h2>
-            <img src="https:${current.condition.icon}" alt="${current.condition.text}" class="w-16 mx-auto mb-2">
-            <p class="text-lg">${current.temp_c}°C, ${current.condition.text}</p>
-        </div>
+    locationDisplay.textContent = `${location.name}, ${location.country}`;
+    todayWeatherDisplay.innerHTML = `
+        <div class="text-4xl font-bold">${current.temp_c}°C</div>
+        <div class="text-lg">${current.condition.text}</div>
+        <img src="${current.condition.icon}" alt="${current.condition.text}" class="mx-auto" />
     `;
-
-    const forecastWeather = forecast.forecastday.map(day => `
-        <div class="text-center mb-4">
-            <h3 class="font-semibold">${new Date(day.date).toLocaleDateString()}</h3>
-            <img src="https:${day.day.condition.icon}" alt="${day.day.condition.text}" class="w-12 mx-auto mb-2">
-            <p class="text-md">${day.day.avgtemp_c}°C, ${day.day.condition.text}</p>
-        </div>
-    `).join('');
-
-    weatherInfo.innerHTML = currentWeather + forecastWeather;
+    forecastDisplay.innerHTML = forecast.forecastday
+        .slice(1)
+        .map(day => `
+            <div class="p-2 border rounded">
+                <div class="text-lg font-semibold">${new Date(day.date).toLocaleDateString(undefined, { weekday: 'long' })}</div>
+                <div>${day.day.maxtemp_c}°C / ${day.day.mintemp_c}°C</div>
+                <img src="${day.day.condition.icon}" alt="${day.day.condition.text}" class="mx-auto" />
+                <div>${day.day.condition.text}</div>
+            </div>
+        `)
+        .join('');
 }
 
-document.getElementById('search').addEventListener('input', function () {
-    const query = this.value.trim();
-    if (query) {
-        fetchWeather(query);
+// Fetch weather for the current location using Geolocation API
+function fetchWeatherForCurrentLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const { latitude, longitude } = position.coords;
+                fetchWeather(`${latitude},${longitude}`);
+            },
+            error => {
+                console.error(error);
+                // alert('Unable to retrieve your location.');
+            }
+        );
     } else {
-        fetchWeather();
+        alert('Geolocation is not supported by this browser.');
+    }
+}
+
+// Event listener for location input changes
+locationInput.addEventListener('input', (e) => {
+    const location = e.target.value.trim();
+    if (location) {
+        fetchWeather(location);
     }
 });
 
-// Fetch weather on load
-fetchWeather();
+// Initialize by fetching weather for current location
+fetchWeatherForCurrentLocation();
